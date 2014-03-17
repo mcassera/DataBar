@@ -226,7 +226,6 @@ vidnum = 0
 for item in vidname:
        
 
-	#gpxname = "03-12-2014.gpx"
 	trace = traceImportGPX(gpxname)
 	# determine the boundaries of the trace
 	boundaries_trace = traceBoundaries(trace)
@@ -311,7 +310,7 @@ for item in vidname:
 				lat2, lon2 = p5.latitude,p5.longitude  #Test info
 				elevM = p3.elevation
 
-				radius = 3958.76 # Radius if the Earth in Miles
+				radius = 3958.76 # Radius of the Earth in Miles
 				dlat = math.radians(lat2-lat1)
 				dlon = math.radians(lon2-lon1)
 				lat1r = math.radians(lat1)
