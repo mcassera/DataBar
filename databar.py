@@ -351,6 +351,7 @@ for item in vidname:
 			
 			
 				# Calculate Odometer by using two points next to each other and adding it to a total odo.
+				#This can be turn into a function
 				lat1, lon1 = p2.latitude,p2.longitude  #Test info
 				lat2, lon2 = p3.latitude,p3.longitude  #Test info
 				radius = 3958.76 # Miles
