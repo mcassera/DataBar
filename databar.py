@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Generate speed/bearing info from gpx to annotate a video 
-# 
+# Put together by Michael Cassera
 
 import math
 import logging
