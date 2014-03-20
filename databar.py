@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Generate speed/bearing info from gpx to annotate a video 
-# 
+# Put together by Michael Cassera
 
 import math
 import logging
@@ -225,7 +225,6 @@ vidnum = 0
 for item in vidname:
        
 
-	#gpxname = "03-12-2014.gpx"
 	trace = traceImportGPX(gpxname)
 	# determine the boundaries of the trace
 	boundaries_trace = traceBoundaries(trace)
@@ -310,7 +309,7 @@ for item in vidname:
 				lat2, lon2 = p5.latitude,p5.longitude  #Test info
 				elevM = p3.elevation
 
-				radius = 3958.76 # Radius if the Earth in Miles
+				radius = 3958.76 # Radius of the Earth in Miles
 				dlat = math.radians(lat2-lat1)
 				dlon = math.radians(lon2-lon1)
 				lat1r = math.radians(lat1)
@@ -351,6 +350,7 @@ for item in vidname:
 			
 			
 				# Calculate Odometer by using two points next to each other and adding it to a total odo.
+				# This should be a function
 				lat1, lon1 = p2.latitude,p2.longitude  #Test info
 				lat2, lon2 = p3.latitude,p3.longitude  #Test info
 				radius = 3958.76 # Miles
@@ -386,7 +386,7 @@ for item in vidname:
 						init4_total = (init3_min * 60) + init3_sec  # + calibrate_sec  #calibrate_sec to adjust if timing is off
 						fnumber = init4_total * 30	
 					
-				#Determin if we are heading up or down.
+				#Determine if we are heading up or down.
 				if (int(mph) == 0):
 					grade = 0.0
 				if (tim4 > 10):
@@ -458,7 +458,6 @@ for item in vidname:
 			
 
 	#Rip Audio
-	#raudio = "ffmpeg -i " + vidname[vidnum] + " -c:a copy sound.m4a"
 	raudio = "ffmpeg -i " + vidname[vidnum] + " -vn -ac 2 -ar 44100 -ab 128k -f wav sound.wav"
 	os.system(raudio)
 
