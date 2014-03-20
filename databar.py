@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Generate speed/bearing info from gpx to annotate a video 
-# Put together by Michael Cassera
+# 
 
 import math
 import logging
@@ -12,7 +12,6 @@ import time
 import os
 import datetime
 import subprocess
-from lxml import etree
 import os.path
 import urllib
 
@@ -226,6 +225,7 @@ vidnum = 0
 for item in vidname:
        
 
+	#gpxname = "03-12-2014.gpx"
 	trace = traceImportGPX(gpxname)
 	# determine the boundaries of the trace
 	boundaries_trace = traceBoundaries(trace)
@@ -266,7 +266,7 @@ for item in vidname:
 	odo = 0
 	fnumber = 1
 	mike = 0
-	calibrate_sec = 156  #adjust if timing is off in seconds 
+	calibrate_sec = -29  #adjust if timing is off in seconds 
 	compass = ".NW . . . N . . . .NE . . . E . . . .SE . . . S . . . .SW . . . W . . . .NW . . . N . . . .NE . . . E"  #The compass string
 	ridetrace = []  
 	outofframes = 0
@@ -310,7 +310,7 @@ for item in vidname:
 				lat2, lon2 = p5.latitude,p5.longitude  #Test info
 				elevM = p3.elevation
 
-				radius = 3958.76 # Radius of the Earth in Miles
+				radius = 3958.76 # Radius if the Earth in Miles
 				dlat = math.radians(lat2-lat1)
 				dlon = math.radians(lon2-lon1)
 				lat1r = math.radians(lat1)
@@ -351,7 +351,6 @@ for item in vidname:
 			
 			
 				# Calculate Odometer by using two points next to each other and adding it to a total odo.
-				#This can be turn into a function
 				lat1, lon1 = p2.latitude,p2.longitude  #Test info
 				lat2, lon2 = p3.latitude,p3.longitude  #Test info
 				radius = 3958.76 # Miles
