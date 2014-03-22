@@ -3,6 +3,8 @@
 # Generate speed/bearing info from gpx to annotate a video 
 # Put together by Michael Cassera
 
+# Mapping help by ossum: http://www.instructables.com/id/Animated-Watercolour-Map-for-Cycle-TourRace-Video/
+
 import math
 import logging
 import sys
@@ -265,7 +267,7 @@ for item in vidname:
 	odo = 0
 	fnumber = 1
 	mike = 0
-	calibrate_sec = -29  #adjust if timing is off in seconds 
+	calibrate_sec = -4  #adjust if timing is off in seconds 
 	compass = ".NW . . . N . . . .NE . . . E . . . .SE . . . S . . . .SW . . . W . . . .NW . . . N . . . .NE . . . E"  #The compass string
 	ridetrace = []  
 	outofframes = 0
@@ -300,8 +302,7 @@ for item in vidname:
 					p2 = p5
 					p3 = p5
 					p4 = p5 
-				
-	
+
 				ridetrace.append([float(p3.latitude),float(p3.longitude)])
 
 				# To Calculate Speed
