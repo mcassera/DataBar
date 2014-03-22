@@ -50,7 +50,7 @@ for track in gpx.tracks:
 			print 
 			target = raw_input("Hit enter to start video with vlc (Quit vlc once you know the time)")
 			runVid = "vlc " + vidname[0]
-			#os.system(runVid)
+			os.system(runVid)
 			print 
 			print 
 			target = raw_input("Enter time movement started in mm:ss format: ")
