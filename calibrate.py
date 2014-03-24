@@ -75,4 +75,7 @@ for track in gpx.tracks:
 			else:
 				calibrate = str(p5.time - vidstart)
 				print "calibration offset: ",calibrate
-			quit()
+			break
+			
+gpx_file.close()
+

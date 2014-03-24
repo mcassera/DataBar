@@ -201,6 +201,72 @@ def insert_annotation(note, fnumber, frames):
 		fnumber = fnumber + 1
 		fcount = fcount + 1
 	return fnumber, outofframes
+	
+### Calculate offset to calibrate video to gps
+### uses vlc to run video
+### watch video to see when movement starts, enter that info when requested
+### will show offset in seconds, can be changed if needed
+### poorly written hack	
+def Calibrate(startvid,gpxfname,videoname):
+	
+	gpx_file = open(gpxfname, 'r')
+	gpx = gpxpy.parse(gpx_file)
+	
+	for track in gpx.tracks:
+		for segment in track.segments:
+			for point in segment.points:
+
+				p5 = point		# One Point
+			
+				print
+				print "         GPS file: ",gpxfname
+				print "      Camera file: ",videoname
+				print "   GPS start time: ",str(p5.time)
+				print "Camera start time: ",startvid
+				print
+				print "Camera start time needs to match GPS start time"
+				print "Please watch",videoname,"and note when you start moving"
+				print 
+				target = raw_input("Hit enter to start video with vlc (Quit vlc once you know the time)")
+				runVid = "vlc " + videoname
+				os.system(runVid)
+				print 
+				print 
+				target = raw_input("Enter time movement started in mm:ss format: ")
+				t1 = float(target[0:2])
+				t2 = float(target[3:5])
+				tSeconds = t1 * 60 + t2
+				print tSeconds
+				startvid = startvid + datetime.timedelta(0,tSeconds)
+				print 
+				print "Update info"
+				print
+				print "         GPS file: ",gpxfname
+				print "      Camera file: ",videoname
+				print "   GPS start time: ",str(p5.time)
+				print "Camera start time: ",startvid
+				print
+				if (startvid > p5.time):
+					calibrate = str(startvid - p5.time)
+					print "calibration offset: -",calibrate
+					ftr = [3600,60,1]
+					c2 = -1 * (sum([a*b for a,b in zip(ftr, map(int,calibrate.split(':')))]))
+				else:
+					calibrate = str(p5.time - startvid)
+					print "calibration offset: ",calibrate
+					ftr = [3600,60,1]
+					c2 = sum([a*b for a,b in zip(ftr, map(int,calibrate.split(':')))])
+				
+				print "Calibration offset in seconds: ",c2
+				target = raw_input("Enter different offset (Hit enter to use calculated number)  ")
+				if (target != ""):
+					c2 = int(target)
+				print c2
+				break
+			
+	gpx_file.close()
+	return c2
+
     
 
 
@@ -267,7 +333,10 @@ for item in vidname:
 	odo = 0
 	fnumber = 1
 	mike = 0
-	calibrate_sec = -4  #adjust if timing is off in seconds 
+	if (vidnum == 0):
+		calibrate_sec = Calibrate(vidstart,gpxname,vidname[vidnum])
+		
+		
 	compass = ".NW . . . N . . . .NE . . . E . . . .SE . . . S . . . .SW . . . W . . . .NW . . . N . . . .NE . . . E"  #The compass string
 	ridetrace = []  
 	outofframes = 0
