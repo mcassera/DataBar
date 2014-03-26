@@ -166,6 +166,7 @@ def drawTraceMask(trace,xResolution,yResolution,traceBoundaries,zoom,filename,tC
             draw.line((x,y,xPrev,yPrev),fill=tColor,width=10)
         xPrev = x
         yPrev = y
+    draw.ellipse((x-7,y-7,x+7,y+7),fill="blue")
     del draw
     out.save(os.path.join(os.curdir,filename))
     return (x,y)
