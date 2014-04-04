@@ -163,7 +163,7 @@ def drawTraceMask(trace,xResolution,yResolution,traceBoundaries,zoom,filename,tC
         if firstRun:
             firstRun = False
         else:
-			draw.ellipse((x-5,y-5,x+5,y+5),fill=tColor)
+            draw.ellipse((x-5,y-5,x+5,y+5),fill=tColor)
             #draw.line((x,y,xPrev,yPrev),fill=tColor,width=10)
         #xPrev = x
         #yPrev = y
@@ -199,7 +199,9 @@ def insert_annotation(note, fnumber, frames):
 		com = "convert -background \'#00000080\' -font Ubuntu-Mono-Bold -pointsize 42 -fill white label:\'" + note + "\' miff:- | composite -gravity south -geometry +0+3 - " + frname + " " + frname
 		os.system(com)
 		overlayMap = "convert " + frname + " tmp/output.png -composite -format jpg -quality 90 " + frname
+		overlayElev = "convert " + frname + " -gravity NorthEast tmp/elev.png -composite -format jpg -quality 90 " + frname
 		outofframes = os.system(overlayMap)
+		outofframes = os.system(overlayElev)
 		fnumber = fnumber + 1
 		fcount = fcount + 1
 	return fnumber, outofframes
@@ -269,8 +271,63 @@ def Calibrate(startvid,gpxfname,videoname):
 	gpx_file.close()
 	return c2
 
-    
+### Draw elevation map
+def elevMap():
+	import Image
+	import ImageDraw
+	
+	eTrace = []
+	eMin = 0
+	eMax = 0
 
+	eCount = 0
+	gpx_file = open(gpxname, 'r')
+	gpx = gpxpy.parse(gpx_file)
+
+	for track in gpx.tracks:
+		for segment in track.segments:
+			for point in segment.points:
+				elevM = point.elevation
+				elevft = elevM * 3.28084	# 1 meter = 3.28084 feet
+				if (eCount == 0):
+					eMin = elevft
+					eMax = elevft
+				eTrace.append(float(elevft))
+				eCount = eCount + 1
+				if ((float(elevft)+10.0) > eMax):
+					eMax = float(elevft) + 10.0
+				if ((float(elevft)-10.0) < eMin):
+					eMin = float(elevft) - 10.0
+	gpx_file.close()
+	
+	
+	eout = Image.new( 'RGB', (eCount, 256) )
+	edraw = ImageDraw.Draw(eout)
+	ehight = int(eMax - eMin)
+	elevCount = 0
+	
+	
+	for eItem in eTrace:
+		elevation = float(str(eTrace[elevCount]))
+		ePos = elevation - eMin
+		eTrue = int(ePos * 256 / ehight)
+		edraw.line((elevCount,256,elevCount,256-eTrue),fill='green',width=1)
+		edraw.line((elevCount,0,elevCount,256-eTrue),fill='white',width=1)
+		elevCount = elevCount + 1
+	del edraw
+	eout.save(os.path.join(os.curdir,'elevation_map.jpg'))	
+	return eCount	
+
+def markElevMap(elevCount):
+	import Image
+	import ImageDraw
+
+	eout = Image.open("elevation_map.jpg")
+	edraw = ImageDraw.Draw(eout)
+	edraw.line((elevCount,256,elevCount,0),fill='black',width=2)
+	del edraw
+	eout.save(os.path.join(os.curdir,'emap.jpg'))	
+	
 
 # define parameters
 zoom = 14
@@ -288,6 +345,7 @@ f.close()
 gpxname = os.popen('ls *.gpx').read()
 gpxname = gpxname.rstrip()
 print gpxname
+elevXres = elevMap()
 
 
 ###  Run the full program for each MP4 file  
@@ -335,12 +393,14 @@ for item in vidname:
 	odo = 0
 	fnumber = 1
 	mike = 0
+	eCount = 0
 	if (vidnum == 0):
 		calibrate_sec = Calibrate(vidstart,gpxname,vidname[vidnum])
 		
 		
 	compass = ".NW . . . N . . . .NE . . . E . . . .SE . . . S . . . .SW . . . W . . . .NW . . . N . . . .NE . . . E"  #The compass string
 	ridetrace = []  
+	elevtrace = []
 	outofframes = 0
 	vidstart = datetime.datetime.strptime(rVid_Start, '%Y-%m-%d %H:%M:%S')
 	print "vidstart: ", vidstart, "Before offset"	
@@ -373,13 +433,22 @@ for item in vidname:
 					p2 = p5
 					p3 = p5
 					p4 = p5 
+					eMin = (float(p3.elevation) * 3.28084) - 10.0
+					eMax = (float(p3.elevation) * 3.28084) + 10.0
 
 				ridetrace.append([float(p3.latitude),float(p3.longitude)])
+				
+				
+				
 
 				# To Calculate Speed
 				lat1, lon1 = p1.latitude,p1.longitude  #Test info
 				lat2, lon2 = p5.latitude,p5.longitude  #Test info
 				elevM = p3.elevation
+				elevft = elevM * 3.28084	# 1 meter = 3.28084 feet
+
+				eCount = eCount + 1
+
 
 				radius = 3958.76 # Radius of the Earth in Miles
 				dlat = math.radians(lat2-lat1)
@@ -401,7 +470,7 @@ for item in vidname:
 					multiplier = 60 / int(float(tm2))
 			
 				mph = d * multiplier * 60	# distances measured over x seconds of travel * multiplier to make a minute * 60 to make an hour
-				elevft = elevM * 3.28084	# 1 meter = 3.28084 feet
+				
 			
 		
 				#bearing formula 
@@ -518,6 +587,16 @@ for item in vidname:
 					viewMap = "convert output-mask.jpg -crop  256x256+" + str(tlx) + "+" + str(tly) + "\\! -alpha set -channel A -evaluate set 60% tmp/output.png"
 					#viewMap = "convert output-mask.jpg -crop  256x256+" + str(tlx) + "+" + str(tly) + "\\! -fuzz 15% -transparent white tmp/output.png"
 					os.system(viewMap)
+					#Mark Elev Map
+					markElevMap(eCount)
+					tlx = eCount - 128
+					if (tlx < 0):
+						tlx = 0
+					if ((tlx + 256) > elevXres):
+						tlx = elevXres - 256
+						
+					viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -alpha set -channel A -evaluate set 60% tmp/elev.png"
+					os.system(viewElev)
 					# send the info to overlay and return current frame number
 					fnumber, outofframes = insert_annotation(printout, fnumber, frames)  			
 					mike = 1	# Because I'm #1  :)
@@ -543,7 +622,9 @@ for item in vidname:
 	os.system('rm -f sound.wav')
 	
 	# Next Video
+	gpx_file.close()
 	vidnum = vidnum + 1
+	
 
 
 
