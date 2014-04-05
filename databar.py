@@ -301,7 +301,7 @@ def elevMap():
 	gpx_file.close()
 	
 	
-	eout = Image.new( 'RGB', (eCount, 256) )
+	eout = Image.new( 'RGB', (eCount + 256, 256) )
 	edraw = ImageDraw.Draw(eout)
 	ehight = int(eMax - eMin)
 	elevCount = 0
@@ -311,11 +311,22 @@ def elevMap():
 		elevation = float(str(eTrace[elevCount]))
 		ePos = elevation - eMin
 		eTrue = int(ePos * 256 / ehight)
-		edraw.line((elevCount,256,elevCount,256-eTrue),fill='green',width=1)
-		edraw.line((elevCount,0,elevCount,256-eTrue),fill='white',width=1)
+		if (elevCount > 0):
+			edraw.line((elevCount+255,256-preveTrue,elevCount+256,256-eTrue),fill='green',width=10)
+		#edraw.line((elevCount,0,elevCount,256-eTrue),fill='white',width=1)
 		elevCount = elevCount + 1
+		preveTrue = eTrue
+	
+	eLines = eMin
+	while (eLines < eMax):
+		ePos = eLines - eMin
+		eTrue = int(ePos * 256 / ehight)
+		edraw.line((0,256-eTrue,eCount + 256,256-eTrue),fill='grey',width=1)
+		eLines = eLines + 100
+	
+	edraw.line((0,256,eCount + 256,256),fill='white',width=2)
 	del edraw
-	eout.save(os.path.join(os.curdir,'elevation_map.jpg'))	
+	eout.save(os.path.join(os.curdir,'emap.jpg'))	
 	return eCount	
 
 def markElevMap(elevCount):
@@ -324,7 +335,7 @@ def markElevMap(elevCount):
 
 	eout = Image.open("elevation_map.jpg")
 	edraw = ImageDraw.Draw(eout)
-	edraw.line((elevCount,256,elevCount,0),fill='black',width=2)
+	edraw.line((elevCount,256,elevCount,0),fill='blue',width=1)
 	del edraw
 	eout.save(os.path.join(os.curdir,'emap.jpg'))	
 	
@@ -409,7 +420,7 @@ for item in vidname:
 
 	# Make tmp directory and Rip the video into frames
 	os.system('mkdir tmp')			#Create tmp director to store all the frames
-	ripframes = "ffmpeg -i " + vidname[vidnum] + " -f image2 tmp/frame%7d.jpg"	#Make command string to rip frames into pics
+	ripframes = "ffmpeg -r 30 -i " + vidname[vidnum] + " -f image2 -qscale:v 2 -r 30 tmp/frame%7d.jpg"	#Make command string to rip frames into pics
 	os.system(ripframes)    		#run the rip command
 
 	## Start reading the gpx file one point at a time and calculate
@@ -588,14 +599,11 @@ for item in vidname:
 					#viewMap = "convert output-mask.jpg -crop  256x256+" + str(tlx) + "+" + str(tly) + "\\! -fuzz 15% -transparent white tmp/output.png"
 					os.system(viewMap)
 					#Mark Elev Map
-					markElevMap(eCount)
-					tlx = eCount - 128
-					if (tlx < 0):
-						tlx = 0
-					if ((tlx + 256) > elevXres):
-						tlx = elevXres - 256
-						
-					viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -alpha set -channel A -evaluate set 60% tmp/elev.png"
+					#markElevMap(eCount)
+					tlx = eCount
+					
+					viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -fuzz 10% -transparent black tmp/elev.png"	
+					#viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -alpha set -channel A -evaluate set 60% tmp/elev.png"
 					os.system(viewElev)
 					# send the info to overlay and return current frame number
 					fnumber, outofframes = insert_annotation(printout, fnumber, frames)  			
