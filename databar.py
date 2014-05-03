@@ -306,28 +306,62 @@ def elevMap():
 	ehight = int(eMax - eMin)
 	elevCount = 0
 	
-	
+	edraw.line((0,128,eCount+256,128),fill='grey',width=256)
 	for eItem in eTrace:
 		elevation = float(str(eTrace[elevCount]))
 		ePos = elevation - eMin
 		eTrue = int(ePos * 256 / ehight)
+		
 		if (elevCount > 0):
-			edraw.line((elevCount+255,256-preveTrue,elevCount+256,256-eTrue),fill='green',width=10)
-		#edraw.line((elevCount,0,elevCount,256-eTrue),fill='white',width=1)
+			#edraw.line((elevCount+255,256-preveTrue,elevCount+256,256-eTrue),fill='green',width=10)
+			edraw.line((elevCount+255,256,elevCount+255,256-eTrue),fill='green',width=1)
+			#edraw.line((elevCount+255,0,elevCount+255,256-eTrue),fill='grey',width=1)
 		elevCount = elevCount + 1
 		preveTrue = eTrue
 	
-	eLines = eMin
+	eLines = 0
 	while (eLines < eMax):
 		ePos = eLines - eMin
 		eTrue = int(ePos * 256 / ehight)
-		edraw.line((0,256-eTrue,eCount + 256,256-eTrue),fill='grey',width=1)
+		if (eLines > eMin):
+			edraw.line((0,256-eTrue,eCount + 256,256-eTrue),fill='black',width=1)
+			
+			sLines = str(eLines)
+			digits = len(sLines)
+			digitsCount = 0
+			while (digitsCount < digits):
+				digit = int(float(sLines[digitsCount:digitsCount+1]))
+
+				tCount = 0
+				thScale = 20 * 256 / ehight
+				dgScale = (digitsCount * 30) * 256 / ehight
+				
+				while (tCount < (eCount+256)):
+					pB = int((ePos - 20) * 256 / ehight)
+					pM = int((ePos     ) * 256 / ehight)
+					pT = int((ePos + 20) * 256 / ehight)
+					if ((digit==0)|(digit==2)|(digit==3)|(digit==5)|(digit==6)|(digit==7)|(digit==8)|(digit==9)):
+						edraw.line((dgScale+tCount,256-pT,dgScale+tCount+thScale,256-pT),fill='white',width=1) #Top
+					if ((digit==0)|(digit==4)|(digit==5)|(digit==6)|(digit==8)|(digit==9)):
+						edraw.line((dgScale+tCount,256-pT,dgScale+tCount,256-pM),fill='white',width=1) #Top Left
+					if ((digit==0)|(digit==2)|(digit==6)|(digit==8)):
+						edraw.line((dgScale+tCount,256-pM,dgScale+tCount,256-pB),fill='white',width=1) #bottom left
+					if ((digit==2)|(digit==3)|(digit==4)|(digit==5)|(digit==6)|(digit==8)|(digit==9)):
+						edraw.line((dgScale+tCount,256-pM,dgScale+tCount+thScale,256-pM),fill='white',width=1) #middle
+					if ((digit==0)|(digit==1)|(digit==2)|(digit==3)|(digit==4)|(digit==7)|(digit==8)|(digit==9)):
+						edraw.line((dgScale+tCount+thScale,256-pT,dgScale+tCount+thScale,256-pM),fill='white',width=1) #Top Right
+					if ((digit==0)|(digit==1)|(digit==3)|(digit==4)|(digit==5)|(digit==06)|(digit==7)|(digit==8)|(digit==9)):
+						edraw.line((dgScale+tCount+thScale,256-pM,dgScale+tCount+thScale,256-pB),fill='white',width=1) #bottom Right
+					if ((digit==0)|(digit==2)|(digit==3)|(digit==5)|(digit==6)|(digit==8)|(digit==9)):
+						edraw.line((dgScale+tCount,256-pB,dgScale+tCount+thScale,256-pB),fill='white',width=1) #Bottom			
+					tCount = tCount + 300	
+				digitsCount = digitsCount + 1
 		eLines = eLines + 100
 	
-	edraw.line((0,256,eCount + 256,256),fill='white',width=2)
+	edraw.line((0,256,eCount + 256,256),fill='black',width=2)
 	del edraw
 	eout.save(os.path.join(os.curdir,'emap.jpg'))	
-	return eCount	
+	return eCount
 
 def markElevMap(elevCount):
 	import Image
@@ -357,7 +391,6 @@ gpxname = os.popen('ls *.gpx').read()
 gpxname = gpxname.rstrip()
 print gpxname
 elevXres = elevMap()
-
 
 ###  Run the full program for each MP4 file  
 vidnum = 0 
@@ -602,8 +635,8 @@ for item in vidname:
 					#markElevMap(eCount)
 					tlx = eCount
 					
-					viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -fuzz 10% -transparent black tmp/elev.png"	
-					#viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -alpha set -channel A -evaluate set 60% tmp/elev.png"
+					#viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -fuzz 10% -transparent black tmp/elev.png"	
+					viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -alpha set -channel A -evaluate set 60% tmp/elev.png"
 					os.system(viewElev)
 					# send the info to overlay and return current frame number
 					fnumber, outofframes = insert_annotation(printout, fnumber, frames)  			
