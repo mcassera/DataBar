@@ -16,6 +16,8 @@ import datetime
 import subprocess
 import os.path
 import urllib
+import Image
+import ImageDraw
 
 
 ### Function to Read in trace from GPX ###
@@ -72,6 +74,7 @@ def determineTileRange(boundaries,zoom):
 def getTiles(xyRange,zoom):
     #set acive directory to that of the script
     currentdir = os.curdir
+    
     tileDir = os.path.join(currentdir,"tiles")
 
     tileServerUrl = "http://tile.stamen.com/terrain/"
@@ -103,7 +106,9 @@ def getTiles(xyRange,zoom):
 def mergeTiles(xyRange,zoom,filename):
     import Image
     tileSize = 256
-    tileDir = os.path.join(os.curdir,"tiles",str(zoom))
+    currentdir = os.curdir
+ 
+    tileDir = os.path.join(currentdir,"tiles",str(zoom))
 
     out = Image.new( 'RGB', ((xyRange["xMax"]-xyRange["xMin"]+1) * tileSize, (xyRange["yMax"]-xyRange["yMin"]+1) * tileSize) ) 
 
@@ -120,9 +125,8 @@ def mergeTiles(xyRange,zoom,filename):
     out.save(os.path.join(os.curdir,filename))
 
 ### Draw Path Image ###
-def drawTraceMask(trace,xResolution,yResolution,traceBoundaries,zoom,filename,tColor):
-    import Image
-    import ImageDraw
+def drawTraceMask(trace,xResolution,yResolution,traceBoundaries,zoom,filename,tColor,mtype):
+
 
     # Get XY number of NW and SE corner tiles
     xy_nw = deg2num(traceBoundaries["north"],traceBoundaries["west"],zoom)
@@ -148,9 +152,14 @@ def drawTraceMask(trace,xResolution,yResolution,traceBoundaries,zoom,filename,tC
     latDivisor = mapBoundaries["north"]-mapBoundaries["south"]
     lonOffset = -(mapBoundaries["west"])
     lonDivisor = mapBoundaries["east"]-mapBoundaries["west"]
-
-    #out = Image.new( 'RGB', (xResolution, yResolution) )
-    out = Image.open("output-map.jpg")
+    
+    if (mtype == "map"):
+		out = Image.open("output-map.jpg")
+    if (mtype == "notmap"):
+		out = Image.new( 'RGB', (xResolution, yResolution) )
+    if (mtype == "overlay"):
+		out = Image.open("black-map.png")
+		
     draw = ImageDraw.Draw(out)
     
     firstRun = True
@@ -196,12 +205,16 @@ def insert_annotation(note, fnumber, frames):
 		if (fnumber < 10):
 			frname = frname + "0"
 		frname = frname + str(fnumber) + ".jpg"	
-		com = "convert -background \'#00000080\' -font Ubuntu-Mono-Bold -pointsize 42 -fill white label:\'" + note + "\' miff:- | composite -gravity south -geometry +0+3 - " + frname + " " + frname
-		os.system(com)
+		#com = "convert -background \'#00000080\' -font Ubuntu-Mono-Bold -pointsize 42 -fill white label:\'" + note + "\' miff:- | composite -gravity south -geometry +0+3 - " + frname + " " + frname
+		#os.system(com)
 		overlayMap = "convert " + frname + " tmp/output.png -composite -format jpg -quality 90 " + frname
 		overlayElev = "convert " + frname + " -gravity NorthEast tmp/elev.png -composite -format jpg -quality 90 " + frname
-		outofframes = os.system(overlayMap)
-		outofframes = os.system(overlayElev)
+		overlaySpeedo = "convert " + frname + " -gravity North tmp/speedo.png -composite -format jpg -quality 90 " + frname
+		overlayFullMap = "convert " + frname + " -gravity SouthWest tmp/fullmap.png -composite -format jpg -quality 90 " + frname
+		os.system(overlayMap)
+		os.system(overlayFullMap)
+		os.system(overlayElev)
+		outofframes = os.system(overlaySpeedo)
 		fnumber = fnumber + 1
 		fcount = fcount + 1
 	return fnumber, outofframes
@@ -271,10 +284,30 @@ def Calibrate(startvid,gpxfname,videoname):
 	gpx_file.close()
 	return c2
 
+###Draw 7seg Number
+
+def draw7SegNumber(edraw,digit,pos,pT,pM,pB,ledWidth,ledColor,lW):
+	#The drawing of the segments.  check if a number uses the segment and then draw it
+	if ((digit==0)|(digit==2)|(digit==3)|(digit==5)|(digit==6)|(digit==7)|(digit==8)|(digit==9)):
+		edraw.line((pos,pT,pos+ledWidth,pT),fill=ledColor,width=lW) #Top
+	if ((digit==0)|(digit==4)|(digit==5)|(digit==6)|(digit==8)|(digit==9)):
+		edraw.line((pos,pT,pos,pM),fill=ledColor,width=lW) #Top Left
+	if ((digit==0)|(digit==2)|(digit==6)|(digit==8)):
+		edraw.line((pos,pM,pos,pB),fill=ledColor,width=lW) #bottom left
+	if ((digit==2)|(digit==3)|(digit==4)|(digit==5)|(digit==6)|(digit==8)|(digit==9)):
+		edraw.line((pos,pM,pos+ledWidth,pM),fill=ledColor,width=lW) #middle
+	if ((digit==0)|(digit==1)|(digit==2)|(digit==3)|(digit==4)|(digit==7)|(digit==8)|(digit==9)):
+		edraw.line((pos+ledWidth,pT,pos+ledWidth,pM),fill=ledColor,width=lW) #Top Right
+	if ((digit==0)|(digit==1)|(digit==3)|(digit==4)|(digit==5)|(digit==06)|(digit==7)|(digit==8)|(digit==9)):
+		edraw.line((pos+ledWidth,pM,pos+ledWidth,pB),fill=ledColor,width=lW) #bottom Right
+	if ((digit==0)|(digit==2)|(digit==3)|(digit==5)|(digit==6)|(digit==8)|(digit==9)):
+		edraw.line((pos,pB,pos+ledWidth,pB),fill=ledColor,width=lW) #Bottom	
+
+
+
 ### Draw elevation map
 def elevMap():
-	import Image
-	import ImageDraw
+	
 	
 	eTrace = []
 	eMin = 0
@@ -320,26 +353,37 @@ def elevMap():
 		preveTrue = eTrue
 	
 	eLines = 0
+	oSet = False
 	while (eLines < eMax):
 		ePos = eLines - eMin
 		eTrue = int(ePos * 256 / ehight)
+		
 		if (eLines > eMin):
 			edraw.line((0,256-eTrue,eCount + 256,256-eTrue),fill='black',width=1)
-			
-			sLines = str(eLines)
-			digits = len(sLines)
+			# Draw elevation numbers on graph
+			sLines = str(eLines) #Turn elevation into a string
+			digits = len(sLines) #Get the length of that string
 			digitsCount = 0
-			while (digitsCount < digits):
-				digit = int(float(sLines[digitsCount:digitsCount+1]))
+			if (bool(oSet)):
+				oSet = False
+			else:
+				oSet = True
+			while (digitsCount < digits): # Go through each digit
+				digit = int(float(sLines[digitsCount:digitsCount+1]))  #Get the value of the digit and turn it into an integer
 
-				tCount = 0
-				thScale = 20 * 256 / ehight
-				dgScale = (digitsCount * 30) * 256 / ehight
+				if (bool(oSet)):
+					tCount = 0
+				else: 
+					tCount = 150
+
+				thScale = 20 * 256 / ehight #The horizonal position of the numbers
+				dgScale = (digitsCount * 30) * 256 / ehight #The spacing of the numbers
 				
-				while (tCount < (eCount+256)):
-					pB = int((ePos - 20) * 256 / ehight)
-					pM = int((ePos     ) * 256 / ehight)
+				while (tCount < (eCount+256)):  #The actual drawing of the numbers
+					pB = int((ePos - 20) * 256 / ehight)	#Like a 7 segment display, these are the top, middle and bottom postions
+					pM = int((ePos     ) * 256 / ehight)	#scaled to match the scale of the graph
 					pT = int((ePos + 20) * 256 / ehight)
+					#The drawing of the segments.  check if a number uses the segment and then draw it
 					if ((digit==0)|(digit==2)|(digit==3)|(digit==5)|(digit==6)|(digit==7)|(digit==8)|(digit==9)):
 						edraw.line((dgScale+tCount,256-pT,dgScale+tCount+thScale,256-pT),fill='white',width=1) #Top
 					if ((digit==0)|(digit==4)|(digit==5)|(digit==6)|(digit==8)|(digit==9)):
@@ -362,6 +406,183 @@ def elevMap():
 	del edraw
 	eout.save(os.path.join(os.curdir,'emap.jpg'))	
 	return eCount
+
+
+
+
+
+def speedometer(speed, odometer, elevation):
+		
+	eout = Image.new( 'RGB', (600, 70))
+	edraw = ImageDraw.Draw(eout)
+	
+	speedoStart = 250
+	odoStart = 0
+	elevStart = 430
+	
+	
+	###Speedo
+	sSpeed = str(int(speed))
+	sDigits = len(sSpeed) #Get the length of that string
+	digitsCount = 0
+	##Speedo LED settings
+	pB = 60 #Like a 7 segment display, these are the top, middle and bottom postions
+	pM = 35	#scaled to match the scale of the graph
+	pT = 10
+	lW = 4
+	ledWidth = 20
+	ledColor = "red"
+	while (digitsCount < sDigits): # Go through each digit
+		digit = int(float(sSpeed[digitsCount:digitsCount+1]))  #Get the value of the digit and turn it into an integer
+		
+		
+		
+		pos = ((30 * digitsCount) + 5) + speedoStart
+		if (speed < 10):
+			pos = pos + 30
+			
+		draw7SegNumber(edraw,digit,pos,pT,pM,pB,ledWidth,ledColor,lW)
+	
+		digitsCount = digitsCount + 1
+	mphWidth = 1
+	#M
+	edraw.line((speedoStart+70,60,speedoStart+70,35),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+70,35,speedoStart+75,45),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+75,45,speedoStart+80,35),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+80,35,speedoStart+80,60),fill=ledColor,width=mphWidth)
+	#P
+	edraw.line((speedoStart+85,35,speedoStart+85,60),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+85,35,speedoStart+95,35),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+95,35,speedoStart+95,45),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+85,45,speedoStart+95,45),fill=ledColor,width=mphWidth)
+	#H
+	edraw.line((speedoStart+100,35,speedoStart+100,60),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+100,45,speedoStart+110,45),fill=ledColor,width=mphWidth)
+	edraw.line((speedoStart+110,35,speedoStart+110,60),fill=ledColor,width=mphWidth)
+	
+	###odo
+	
+	##odo LED settings
+
+	pB = 60 #Like a 7 segment display, these are the top, middle and bottom postions
+	pM = 40	#scaled to match the scale of the graph
+	pT = 20
+	lW = 2
+	ledWidth = 20
+	ledColor = "red"
+	
+	odoBig = int(odometer)
+	odoSmall = int((odometer - float(odoBig)) * 100)
+	
+	sOdo = str(odoBig)
+	if (odoBig < 10):
+		sOdot = sOdo
+		sOdo = "." + sOdot
+		
+	if (odoBig < 100):
+		sOdot = sOdo
+		sOdo = "." + sOdot
+		
+		 
+	sDigits = len(sOdo) #Get the length of that string
+	digitsCount = 0
+	while (digitsCount < sDigits): # Go through each digit
+		
+		
+		pos = ((28 * digitsCount) + 8) + odoStart
+		dTemp = sOdo[digitsCount:digitsCount+1]
+		if (dTemp != "."):
+			digit = int(float(sOdo[digitsCount:digitsCount+1]))  #Get the value of the digit and turn it into an integer
+			draw7SegNumber(edraw,digit,pos,pT,pM,pB,ledWidth,ledColor,lW)
+	
+		digitsCount = digitsCount + 1
+		
+	pB = 60 #Like a 7 segment display, these are the top, middle and bottom postions
+	pM = 50	#scaled to match the scale of the graph
+	pT = 40
+	lW = 2
+	ledWidth = 15
+	ledColor = "red"
+	odoStart = 90
+	
+	sOdo = str(odoSmall)
+	if (odoSmall < 10):
+		sOdot = sOdo
+		sOdo = "0" + sOdot
+	sDigits = len(sOdo) #Get the length of that string
+	digitsCount = 0
+	while (digitsCount < sDigits): # Go through each digit
+		digit = int(float(sOdo[digitsCount:digitsCount+1]))  #Get the value of the digit and turn it into an integer
+		pos = ((22 * digitsCount) + 5) + odoStart
+		draw7SegNumber(edraw,digit,pos,pT,pM,pB,ledWidth,ledColor,lW)
+		digitsCount = digitsCount + 1
+	
+	#M
+	edraw.line((odoStart+60,pB,odoStart+60,pT),fill=ledColor,width=mphWidth)
+	edraw.line((odoStart+60,pT,odoStart+65,pM),fill=ledColor,width=mphWidth)
+	edraw.line((odoStart+65,pM,odoStart+70,pT),fill=ledColor,width=mphWidth)
+	edraw.line((odoStart+70,pT,odoStart+70,pB),fill=ledColor,width=mphWidth)
+	
+	#I
+	edraw.line((odoStart+75,pT,odoStart+75,pB),fill=ledColor,width=mphWidth)
+	
+	##elev LED settings
+
+	pB = 60 #Like a 7 segment display, these are the top, middle and bottom postions
+	pM = 40	#scaled to match the scale of the graph
+	pT = 20
+	lW = 2
+	ledWidth = 20
+	ledColor = "red"
+	
+	elev = int(elevation)
+	
+	sElev = str(elev)
+	if (elev < 10):
+		sOdot = sElev
+		sElev = "." + sOdot
+		
+	if (elev < 100):
+		sOdot = sElev
+		sElev = "." + sOdot
+		
+	if (elev < 1000):
+		sOdot = sElev
+		sElev = "." + sOdot
+		
+		 
+	sDigits = len(sElev) #Get the length of that string
+	digitsCount = 0
+	while (digitsCount < sDigits): # Go through each digit
+		
+		
+		pos = ((28 * digitsCount) + 8) + elevStart
+		dTemp = sElev[digitsCount:digitsCount+1]
+		if (dTemp != "."):
+			digit = int(float(sElev[digitsCount:digitsCount+1]))  #Get the value of the digit and turn it into an integer
+			draw7SegNumber(edraw,digit,pos,pT,pM,pB,ledWidth,ledColor,lW)
+	
+		digitsCount = digitsCount + 1
+		
+	#F
+	edraw.line((elevStart+130,40,elevStart+130,60),fill=ledColor,width=mphWidth)
+	edraw.line((elevStart+130,40,elevStart+140,40),fill=ledColor,width=mphWidth)
+	edraw.line((elevStart+130,50,elevStart+140,50),fill=ledColor,width=mphWidth)
+	
+	#T
+	edraw.line((elevStart+145,40,elevStart+155,40),fill=ledColor,width=mphWidth)
+	edraw.line((elevStart+150,40,elevStart+150,60),fill=ledColor,width=mphWidth)
+
+	
+	del edraw
+	eout.save(os.path.join(os.curdir,'speedo.png'))
+	
+	
+	
+	
+	
+
+
 
 def markElevMap(elevCount):
 	import Image
@@ -410,8 +631,20 @@ for item in vidname:
 	getTiles(tileRange,zoom)
 	# merge tiles into oneimage
 	mergeTiles(tileRange,zoom,"output-map.jpg")
+	
+	# Get the resolution of the full map
+	xRes = (xTiles + 1) * 256
+	yRes = (yTiles + 1) * 256 
+	
+	print "Map Resolution: ",xRes,yRes
+	
+	if (xRes > yRes):			#scale for full map.
+		mapScale = xRes / 400
+	else:
+		mapScale = yRes / 400
+		
 	# Draw Green track
-	#x, y = drawTraceMask(trace,256*(xTiles+1),256*(yTiles+1),boundaries_trace,zoom,"output-map.jpg","green")
+	x, y = drawTraceMask(trace,((256*(xTiles+1))/mapScale),((256*(yTiles+1))/mapScale),boundaries_trace,zoom,"black-map.png","green","notmap")
 
 	# Find the creation date of the video file from ffmpeg info
 	cmmd = "ffmpeg -i " + vidname[vidnum] + " 2>&1 | grep \"creation_time\"| cut -d \' \' -f 9"
@@ -421,11 +654,7 @@ for item in vidname:
 	rVid_Start = str(vid_date)[0:10] + " " + str(vid_time)[0:8]
 	vidstart = datetime.datetime.strptime(rVid_Start, '%Y-%m-%d %H:%M:%S')
 		
-	# Get the resolution of the full map
-	xRes = (xTiles + 1) * 256
-	yRes = (yTiles + 1) * 256 
 	
-	print "Map Resolution: ",xRes,yRes
 
 	# My Variables (such that they are)
 	p1 = 0
@@ -435,6 +664,7 @@ for item in vidname:
 	p5 = 0
 	grade = 0
 	odo = 0
+	totalClimb = 0
 	fnumber = 1
 	mike = 0
 	eCount = 0
@@ -490,6 +720,14 @@ for item in vidname:
 				lat2, lon2 = p5.latitude,p5.longitude  #Test info
 				elevM = p3.elevation
 				elevft = elevM * 3.28084	# 1 meter = 3.28084 feet
+				
+				# Calculate total climb
+				elev2M = p2.elevation
+				elev2ft = elev2M * 3.28084	# 1 meter = 3.28084 feet
+				
+				if (elevft > elev2ft):
+					totalClimb = totalClimb + (elevft-elev2ft)
+				
 
 				eCount = eCount + 1
 
@@ -514,6 +752,8 @@ for item in vidname:
 					multiplier = 60 / int(float(tm2))
 			
 				mph = d * multiplier * 60	# distances measured over x seconds of travel * multiplier to make a minute * 60 to make an hour
+				
+				
 				
 			
 		
@@ -584,6 +824,9 @@ for item in vidname:
 				if (grade == 0):
 					direction = "     "
 					
+				
+					
+					
 				#Start building display as a string
 				#Odometer
 				printout = ""
@@ -608,14 +851,21 @@ for item in vidname:
 				if (int(elevft) < 10):
 					printout = printout + " "	
 				printout = printout + ('{0} ft  {2}\\% {1}').format(int(elevft), direction, grade)			
-			
+				
+						
+				#Start Making Overlays
 				# Send overlay to images
 				if (p3.time > vidstart):
+					
+					
+					speedometer(mph, odo, elevft)	#draw the speedometer	
+					
 					print "Delay", tim, "Frame:", fnumber, frames
 					print printout
 					# draw the path
-					# Note: the range in "tilerange" refers to the NW corner, but our image extends on block further
-					x, y = drawTraceMask(ridetrace,256*(xTiles+1),256*(yTiles+1),boundaries_trace,zoom,"output-mask.jpg","red")
+					# Note: the range in "tilerange" refers to the NW corner, but our image extends on block further				
+					x, y = drawTraceMask(ridetrace,((256*(xTiles+1))/mapScale),((256*(yTiles+1))/mapScale),boundaries_trace,zoom,"black-mask.png","red","overlay")
+					x, y = drawTraceMask(ridetrace,256*(xTiles+1),256*(yTiles+1),boundaries_trace,zoom,"output-mask.jpg","red","map")
 					tlx = x - 128
 					tly = y - 128
 					#Stop map scroll if close to map image edge
@@ -628,15 +878,18 @@ for item in vidname:
 					if ((tly + 256) > yRes):
 						tly = yRes - 256
 					#Create Map crop command
-					viewMap = "convert output-mask.jpg -crop  256x256+" + str(tlx) + "+" + str(tly) + "\\! -alpha set -channel A -evaluate set 60% tmp/output.png"
+					viewMap = "convert output-mask.jpg -crop  256x256+" + str(tlx) + "+" + str(tly) + "\\! -frame 6x6+2+2 -alpha set -channel A -evaluate set 60% tmp/output.png"
 					#viewMap = "convert output-mask.jpg -crop  256x256+" + str(tlx) + "+" + str(tly) + "\\! -fuzz 15% -transparent white tmp/output.png"
 					os.system(viewMap)
 					#Mark Elev Map
 					#markElevMap(eCount)
 					tlx = eCount
 					
-					#viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -fuzz 10% -transparent black tmp/elev.png"	
-					viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -alpha set -channel A -evaluate set 60% tmp/elev.png"
+					viewFullMap = "convert black-mask.png  -fuzz 5% -transparent black tmp/fullmap.png"
+					viewSpeedo = "convert speedo.png -fuzz 5% -transparent black tmp/speedo.png"	
+					viewElev = "convert emap.jpg -crop  256x256+" + str(tlx) + "+0\\! -frame 6x6+2+2 -alpha set -channel A -evaluate set 60% tmp/elev.png"
+					os.system(viewFullMap)
+					os.system(viewSpeedo)
 					os.system(viewElev)
 					# send the info to overlay and return current frame number
 					fnumber, outofframes = insert_annotation(printout, fnumber, frames)  			
